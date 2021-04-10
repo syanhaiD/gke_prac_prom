@@ -1,0 +1,48 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+rule_files:
+# - "first_rules.yml"
+# - "second_rules.yml"
+
+scrape_configs:
+  - job_name: 'k8s-nodes'
+
+    kubernetes_sd_configs:
+      - role: node
+        api_server: https://xxx.xxx.xxx.xxx # GKE クラスタエンドポイント
+        tls_config:
+          ca_file: cluster_ca_file_path # GKE クラスタ証明書
+        authorization:
+          credentials_file: token_file_path # service account token
+
+    tls_config:
+      ca_file: cluster_ca_file_path # GKE クラスタ証明書
+    authorization:
+      credentials_file: token_file_path # service account token
+
+    scheme: https
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: __address__
+        replacement: https://xxx.xxx.xxx.xxx # GKE クラスタエンドポイント
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+
+  - job_name: 'kube-state-metrics'
+    gce_sd_configs:
+      - project: your_project_name
+        zone: us-west1-b # kube-state-mertcisがデプロイされているpodを格納したGCEが浮かぶゾーン
+        port: 32222 # nodePortで指定したport
+    relabel_configs:
+      - source_labels: [__meta_gce_tags]
+        regex: ".*,kube-state-metrics-tag,.*" # 先頭にもケツにも必ずカンマがつく仕様っぽい
+        action: keep
